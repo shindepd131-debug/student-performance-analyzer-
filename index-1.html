@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Student Performance Analyzer</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f6f7fb;--card:#fff;--tx:#1d2433;--mut:#667085;--ac:#4f46e5;--bd:#e4e7ec;--ok:#16a34a;--wn:#d97706;--er:#dc2626;--hd:#eef0ff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1220;--card:#181c2f;--tx:#e8eaf3;--mut:#9aa3b8;--ac:#818cf8;--bd:#2a3050;--hd:#1f2547;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1220;--card:#181c2f;--tx:#e8eaf3;--mut:#9aa3b8;--ac:#818cf8;--bd:#2a3050;--hd:#1f2547;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.5}
+.wrap{max-width:1050px;margin:0 auto;padding:16px}
+header{text-align:center;padding:18px 0 6px}
+h1{margin:0;font-size:1.7rem}
+.sub{color:var(--mut);margin:4px 0 0}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;margin:14px 0}
+.btn{background:var(--ac);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-size:.95rem;cursor:pointer}
+.btn.alt{background:var(--card);color:var(--tx);border:1px solid var(--bd)}
+.tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:14px}
+.tab{flex:1;min-width:max-content;padding:10px 14px;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:10px;cursor:pointer;font-size:.95rem}
+.tab.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:16px;margin-bottom:14px}
+.card h2{margin:0 0 10px;font-size:1.1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;text-align:center}
+.kpi b{display:block;font-size:1.4rem;color:var(--ac)}
+.kpi span{color:var(--mut);font-size:.8rem}
+.sc{overflow-x:auto;max-height:420px;overflow-y:auto}
+table{border-collapse:collapse;width:100%;font-size:.85rem}
+th,td{padding:7px 10px;border-bottom:1px solid var(--bd);text-align:right;white-space:nowrap}
+th{background:var(--hd);position:sticky;top:0;text-align:right}
+th:first-child,td:first-child{text-align:left}
+.cv{position:relative;height:260px}
+.sl{margin:12px 0}
+.sl label{display:flex;justify-content:space-between;font-size:.9rem}
+.sl input{width:100%;accent-color:var(--ac)}
+.res{text-align:center;padding:18px;border-radius:14px;border:2px solid var(--bd);margin-top:10px}
+.res .n{font-size:3rem;font-weight:700}
+.badge{display:inline-block;padding:4px 12px;border-radius:999px;color:#fff;font-weight:600;font-size:.9rem}
+.note{color:var(--mut);font-size:.85rem}
+.hide{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+<h1>🎓 Student Performance Analyzer</h1>
+<p class="sub">Data cleaning, analysis and grade prediction in your browser</p>
+</header>
+
+<div class="bar">
+<input type="file" id="file" accept=".csv" class="hide">
+<button class="btn" onclick="document.getElementById('file').click()">📤 Upload CSV</button>
+<button class="btn alt" onclick="loadSample()">🔄 Use sample data</button>
+<button class="btn alt" onclick="downloadSample()">⬇️ Sample CSV format</button>
+</div>
+<p class="note" id="msg" style="text-align:center"></p>
+
+<div class="tabs" id="tabs">
+<button class="tab on" data-t="t1">📋 Data</button>
+<button class="tab" data-t="t2">📊 Analysis</button>
+<button class="tab" data-t="t3">📈 Charts</button>
+<button class="tab" data-t="t4">🎯 Prediction</button>
+</div>
+
+<section id="t1">
+<div class="kpis" id="kpi1"></div>
+<div class="card"><h2>Cleaned dataset (first 100 rows)</h2><div class="sc" id="tbl"></div></div>
+</section>
+
+<section id="t2" class="hide">
+<div class="card"><h2>Statistical summary</h2><div class="sc" id="stats"></div></div>
+<div class="grid">
+<div class="card"><h2>Gender-wise average</h2><div class="sc" id="grp"></div></div>
+<div class="card"><h2>Grade distribution</h2><div class="cv"><canvas id="cGrade"></canvas></div></div>
+</div>
+</section>
+
+<section id="t3" class="hide">
+<div class="grid">
+<div class="card"><h2>Final marks distribution</h2><div class="cv"><canvas id="cHist"></canvas></div></div>
+<div class="card"><h2>Study hours vs final marks</h2><div class="cv"><canvas id="cStudy"></canvas></div></div>
+<div class="card"><h2>Attendance vs final marks</h2><div class="cv"><canvas id="cAtt"></canvas></div></div>
+<div class="card"><h2>Correlation with final marks</h2><div class="cv"><canvas id="cCorr"></canvas></div></div>
+</div>
+</section>
+
+<section id="t4" class="hide">
+<div class="card">
+<h2>Predict final marks</h2>
+<p class="note" id="model"></p>
+<div class="grid">
+<div>
+<div class="sl"><label>Study hours per day <b id="v1">5</b></label><input type="range" id="s1" min="0" max="10" step="0.5" value="5"></div>
+<div class="sl"><label>Attendance % <b id="v2">75</b></label><input type="range" id="s2" min="0" max="100" value="75"></div>
+</div>
+<div>
+<div class="sl"><label>Previous marks <b id="v3">60</b></label><input type="range" id="s3" min="0" max="100" value="60"></div>
+<div class="sl"><label>Assignment score <b id="v4">70</b></label><input type="range" id="s4" min="0" max="100" value="70"></div>
+</div>
+</div>
+<div class="res"><div class="note">Predicted final marks</div><div class="n" id="pred">–</div><span class="badge" id="pg"></span></div>
+</div>
+</section>
+
+<p class="note" style="text-align:center;margin-top:20px">CSV columns needed: study_hours, attendance, previous_marks, assignment_score, final_marks (optional: student_id, gender). Data stays in your browser.</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+var NUM=["study_hours","attendance","previous_marks","assignment_score","final_marks"];
+var FEAT=NUM.slice(0,4);
+var rows=[],model=null,charts={},stats={};
+
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;var t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function gauss(r){return Math.sqrt(-2*Math.log(r()+1e-9))*Math.cos(2*Math.PI*r())}
+
+function sampleRows(){
+  var r=rng(42),out=[];
+  for(var i=1;i<=300;i++){
+    var s=Math.round((1+r()*8)*10)/10,a=50+Math.floor(r()*50),p=35+Math.floor(r()*60),g=40+Math.floor(r()*60);
+    var f=0.25*s*8+0.2*a+0.35*p+0.2*g+gauss(r)*4;
+    f=Math.max(0,Math.min(100,Math.round(f)));
+    out.push({student_id:i,gender:r()<0.5?"Male":"Female",study_hours:s,attendance:a,previous_marks:p,assignment_score:g,final_marks:f});
+  }
+  for(var k=0;k<8;k++){out[Math.floor(r()*300)].study_hours=NaN}
+  for(var d=0;d<5;d++){out.push(Object.assign({},out[Math.floor(r()*300)]))}
+  return out;
+}
+
+function parseCSV(text){
+  var lines=text.trim().split(/\r?\n/);
+  var h=lines[0].split(",").map(function(x){return x.trim().toLowerCase()});
+  for(var i=0;i<NUM.length;i++){if(h.indexOf(NUM[i])<0)throw new Error("Missing column: "+NUM[i])}
+  return lines.slice(1).filter(function(l){return l.trim()}).map(function(l,idx){
+    var c=l.split(","),o={};
+    h.forEach(function(k,j){var v=(c[j]||"").trim();o[k]=NUM.indexOf(k)>=0?(v===""?NaN:parseFloat(v)):v});
+    if(o.student_id===undefined||o.student_id==="")o.student_id=idx+1;
+    if(!o.gender)o.gender="NA";
+    return o;
+  });
+}
+
+function median(a){var s=a.filter(function(x){return !isNaN(x)}).sort(function(x,y){return x-y});if(!s.length)return 0;var m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2}
+function mean(a){return a.reduce(function(x,y){return x+y},0)/a.length}
+function sd(a){var m=mean(a);return Math.sqrt(a.reduce(function(s,x){return s+(x-m)*(x-m)},0)/(a.length-1||1))}
+function pct(a,p){var s=a.slice().sort(function(x,y){return x-y});var i=(s.length-1)*p,lo=Math.floor(i),hi=Math.ceil(i);return s[lo]+(s[hi]-s[lo])*(i-lo)}
+function grade(m){return m>=75?"Distinction":m>=60?"First Class":m>=50?"Second Class":m>=40?"Pass":"Fail"}
+var GC={"Distinction":"#16a34a","First Class":"#2563eb","Second Class":"#7c3aed","Pass":"#d97706","Fail":"#dc2626"};
+function f2(x){return (Math.round(x*100)/100).toFixed(2)}
+
+function clean(raw){
+  var seen={},uniq=[],dups=0,filled=0;
+  raw.forEach(function(r){var k=JSON.stringify(r,function(_,v){return typeof v==="number"&&isNaN(v)?"NaN":v});if(seen[k]){dups++}else{seen[k]=1;uniq.push(r)}});
+  NUM.forEach(function(c){
+    var med=median(uniq.map(function(r){return r[c]}));
+    uniq.forEach(function(r){if(isNaN(r[c])){r[c]=med;filled++}});
+  });
+  uniq.forEach(function(r){r.grade=grade(r.final_marks)});
+  return {rows:uniq,dups:dups,filled:filled,total:raw.length};
+}
+
+function solve(A,b){
+  var n=b.length,i,j,k;
+  for(i=0;i<n;i++){
+    var mx=i;for(j=i+1;j<n;j++)if(Math.abs(A[j][i])>Math.abs(A[mx][i]))mx=j;
+    var t=A[i];A[i]=A[mx];A[mx]=t;var tb=b[i];b[i]=b[mx];b[mx]=tb;
+    for(j=i+1;j<n;j++){var f=A[j][i]/A[i][i];for(k=i;k<n;k++)A[j][k]-=f*A[i][k];b[j]-=f*b[i]}
+  }
+  var x=new Array(n);
+  for(i=n-1;i>=0;i--){var s=b[i];for(j=i+1;j<n;j++)s-=A[i][j]*x[j];x[i]=s/A[i][i]}
+  return x;
+}
+function fit(X,y){
+  var n=X[0].length,A=[],b=[],i,j,r;
+  for(i=0;i<n;i++){A.push(new Array(n).fill(0));b.push(0)}
+  for(r=0;r<X.length;r++)for(i=0;i<n;i++){b[i]+=X[r][i]*y[r];for(j=0;j<n;j++)A[i][j]+=X[r][i]*X[r][j]}
+  return solve(A,b);
+}
+function pred(beta,x){var s=beta[0];for(var i=0;i<x.length;i++)s+=beta[i+1]*x[i];return Math.max(0,Math.min(100,s))}
+
+function trainModel(){
+  var r=rng(7),idx=rows.map(function(_,i){return i});
+  for(var i=idx.length-1;i>0;i--){var j=Math.floor(r()*(i+1));var t=idx[i];idx[i]=idx[j];idx[j]=t}
+  var cut=Math.floor(idx.length*0.8),tr=idx.slice(0,cut),te=idx.slice(cut);
+  var get=function(i){return [1].concat(FEAT.map(function(c){return rows[i][c]}))};
+  var beta=fit(tr.map(get),tr.map(function(i){return rows[i].final_marks}));
+  var ys=te.map(function(i){return rows[i].final_marks}),ps=te.map(function(i){return pred(beta,get(i).slice(1))});
+  var my=mean(ys),ssr=0,sst=0,mae=0;
+  ys.forEach(function(y,k){ssr+=(y-ps[k])*(y-ps[k]);sst+=(y-my)*(y-my);mae+=Math.abs(y-ps[k])});
+  model={beta:beta,r2:1-ssr/sst,mae:mae/ys.length,n:rows.length};
+}
+
+function corr(a,b){var ma=mean(a),mb=mean(b),n=0,da=0,db=0;for(var i=0;i<a.length;i++){n+=(a[i]-ma)*(b[i]-mb);da+=(a[i]-ma)*(a[i]-ma);db+=(b[i]-mb)*(b[i]-mb)}return n/Math.sqrt(da*db)}
+
+function table(head,body){return "<table><thead><tr>"+head.map(function(h){return "<th>"+h+"</th>"}).join("")+"</tr></thead><tbody>"+body.map(function(r){return "<tr>"+r.map(function(c){return "<td>"+c+"</td>"}).join("")+"</tr>"}).join("")+"</tbody></table>"}
+
+function render(info){
+  var fm=rows.map(function(r){return r.final_marks});
+  var pass=rows.filter(function(r){return r.final_marks>=40}).length;
+  document.getElementById("kpi1").innerHTML=[
+    [info.total,"Records loaded"],[rows.length,"After cleaning"],[info.dups,"Duplicates removed"],[info.filled,"Missing values filled"],
+    [f2(mean(fm)),"Average marks"],[Math.round(pass/rows.length*100)+"%","Pass rate"]
+  ].map(function(k){return '<div class="kpi"><b>'+k[0]+'</b><span>'+k[1]+'</span></div>'}).join("");
+  document.getElementById("tbl").innerHTML=table(["ID","Gender","Study h","Attend %","Prev marks","Assign","Final","Grade"],
+    rows.slice(0,100).map(function(r){return [r.student_id,r.gender,r.study_hours,r.attendance,r.previous_marks,r.assignment_score,r.final_marks,r.grade]}));
+
+  var sb=NUM.map(function(c){var v=rows.map(function(r){return r[c]});return [c.replace(/_/g," "),rows.length,f2(mean(v)),f2(sd(v)),f2(Math.min.apply(0,v)),f2(pct(v,.25)),f2(pct(v,.5)),f2(pct(v,.75)),f2(Math.max.apply(0,v))]});
+  document.getElementById("stats").innerHTML=table(["Column","Count","Mean","Std","Min","25%","50%","75%","Max"],sb);
+
+  var gs={};rows.forEach(function(r){(gs[r.gender]=gs[r.gender]||[]).push(r)});
+  document.getElementById("grp").innerHTML=table(["Gender","Students","Study h","Attend %","Final"],Object.keys(gs).map(function(g){
+    var a=gs[g];return [g,a.length,f2(mean(a.map(function(r){return r.study_hours}))),f2(mean(a.map(function(r){return r.attendance}))),f2(mean(a.map(function(r){return r.final_marks})))]}));
+
+  drawCharts();
+  trainModel();
+  document.getElementById("model").textContent="Model: Multiple Linear Regression trained on "+Math.floor(rows.length*0.8)+" records (80:20 split). R² score: "+f2(model.r2)+" | Mean absolute error: "+f2(model.mae)+" marks.";
+  predict();
+}
+
+function mk(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart(document.getElementById(id),cfg)}
+function drawCharts(){
+  var cs=getComputedStyle(document.documentElement);
+  Chart.defaults.color=cs.getPropertyValue("--tx").trim()||"#333";
+  Chart.defaults.borderColor=cs.getPropertyValue("--bd").trim()||"#ddd";
+  var ac=cs.getPropertyValue("--ac").trim()||"#4f46e5";
+  var base={responsive:true,maintainAspectRatio:false};
+  var order=["Distinction","First Class","Second Class","Pass","Fail"];
+  mk("cGrade",{type:"bar",data:{labels:order,datasets:[{data:order.map(function(g){return rows.filter(function(r){return r.grade===g}).length}),backgroundColor:order.map(function(g){return GC[g]})}]},options:Object.assign({plugins:{legend:{display:false}}},base)});
+  var bins=new Array(10).fill(0);rows.forEach(function(r){bins[Math.min(9,Math.floor(r.final_marks/10))]++});
+  mk("cHist",{type:"bar",data:{labels:bins.map(function(_,i){return i*10+"-"+(i*10+9)}),datasets:[{data:bins,backgroundColor:ac}]},options:Object.assign({plugins:{legend:{display:false}},scales:{x:{title:{display:true,text:"Marks"}},y:{title:{display:true,text:"Students"}}}},base)});
+  var sc=function(id,col,xt){mk(id,{type:"scatter",data:{datasets:[{data:rows.map(function(r){return{x:r[col],y:r.final_marks}}),backgroundColor:ac+"99",pointRadius:3}]},options:Object.assign({plugins:{legend:{display:false}},scales:{x:{title:{display:true,text:xt}},y:{title:{display:true,text:"Final marks"}}}},base)})};
+  sc("cStudy","study_hours","Study hours");sc("cAtt","attendance","Attendance %");
+  var fm=rows.map(function(r){return r.final_marks});
+  var cr=FEAT.map(function(c){return corr(rows.map(function(r){return r[c]}),fm)});
+  mk("cCorr",{type:"bar",data:{labels:["Study hours","Attendance","Previous marks","Assignment"],datasets:[{data:cr.map(function(x){return Math.round(x*100)/100}),backgroundColor:ac}]},options:Object.assign({indexAxis:"y",plugins:{legend:{display:false}},scales:{x:{min:-1,max:1}}},base)});
+}
+
+function predict(){
+  if(!model)return;
+  var v=[1,2,3,4].map(function(i){var e=document.getElementById("s"+i);document.getElementById("v"+i).textContent=e.value;return parseFloat(e.value)});
+  var p=Math.round(pred(model.beta,v)*10)/10,g=grade(p);
+  document.getElementById("pred").textContent=p+"%";
+  var b=document.getElementById("pg");b.textContent=g;b.style.background=GC[g];
+}
+[1,2,3,4].forEach(function(i){document.getElementById("s"+i).addEventListener("input",predict)});
+
+function setData(raw,label){
+  try{
+    var info=clean(raw);rows=info.rows;
+    if(rows.length<10)throw new Error("Need at least 10 valid records");
+    render(info);
+    document.getElementById("msg").textContent="✅ "+label+": "+rows.length+" clean records ready.";
+  }catch(e){document.getElementById("msg").textContent="⚠️ "+e.message}
+}
+function loadSample(){setData(sampleRows(),"Sample data")}
+document.getElementById("file").addEventListener("change",function(e){
+  var f=e.target.files[0];if(!f)return;
+  var rd=new FileReader();
+  rd.onload=function(){try{setData(parseCSV(rd.result),f.name)}catch(err){document.getElementById("msg").textContent="⚠️ "+err.message}};
+  rd.readAsText(f);
+});
+function downloadSample(){
+  var t="student_id,gender,study_hours,attendance,previous_marks,assignment_score,final_marks\n1,Male,5.5,80,65,72,70\n2,Female,7,90,78,85,84\n";
+  document.getElementById("msg").textContent="CSV format example:\n"+t.split("\n").slice(0,2).join(" → ");
+  try{var a=document.createElement("a");a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(t);a.download="sample_format.csv";a.click()}catch(e){}
+}
+
+document.getElementById("tabs").addEventListener("click",function(e){
+  var t=e.target.dataset.t;if(!t)return;
+  document.querySelectorAll(".tab").forEach(function(b){b.classList.toggle("on",b===e.target)});
+  ["t1","t2","t3","t4"].forEach(function(id){document.getElementById(id).classList.toggle("hide",id!==t)});
+  window.dispatchEvent(new Event("resize"));
+});
+
+loadSample();
+</script>
+</body>
+</html>
